@@ -141,12 +141,12 @@
 
     // Roteamento inicial por papel
     if (roles.includes("MASTER") || roles.includes("ADMIN_TENANT") || roles.includes("MANAGER_CONDO") || roles.includes("RESIDENT")){
-      location.href = "/app/index.html";
+      location.href = "app/index.html";
       return;
     }
 
     // Fallback
-    location.href = "/app/index.html";
+    location.href = "app/index.html";
   });
 </script>
 </body>
