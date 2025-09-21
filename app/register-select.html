@@ -3,7 +3,13 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
+
+<!-- CSP (produção / GitHub Pages) -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://*.supabase.co https://*.supabase.in wss://*.supabase.co wss://*.supabase.in https://esm.sh; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; frame-src 'self'; base-uri 'self'; form-action 'self'; worker-src 'self' blob:; object-src 'none'">
+
 <title>Condo • Escolha o tipo de cadastro</title>
+<link rel="icon" href="./favicon.svg"/>
+
 <style>
   :root{
     --brand-start:#6C2BD9; --brand-end:#8B5CF6; --on-brand:#fff;
@@ -45,7 +51,7 @@
 <div class="wrap">
   <div class="header">
     <div class="brand"><div class="logo">◆</div><span>Seu Condomínio</span></div>
-    <a class="link" href="login.html">Já tem conta? Entrar</a>
+    <a class="link" href="./login.html">Já tem conta? Entrar</a>
   </div>
 
   <h1>Como deseja se cadastrar?</h1>
@@ -83,9 +89,8 @@
 
 <script>
   function go(path){
-    // se veio de login com ?email=..., repassa o parâmetro
-    const q = new URLSearchParams(location.search);
-    const email = q.get('email');
+    // Se veio de login com ?email=..., repassa o parâmetro
+    const email = new URLSearchParams(location.search).get("email");
     location.href = email ? `${path}?email=${encodeURIComponent(email)}` : path;
   }
 </script>
