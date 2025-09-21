@@ -1,106 +1,140 @@
-import { supabase } from "../supabaseClient.js";
+import { supabase, fetchEffectiveRoles } from "../supabaseClient.js";
 
-const $  = (s)=>document.querySelector(s);
-const $$ = (s)=>document.querySelectorAll(s);
+const RPC_NAME = "registration_request_approve";
 
-const tbody = $("#tbody");
-const dlg   = $("#dlg"), dlgTitle=$("#dlgTitle"), dlgBody=$("#dlgBody");
-const toast = (m)=>{ const t=$("#toast"); t.textContent=m; t.style.display="block"; setTimeout(()=>t.style.display="none", 2200); };
+const $ = (sel, root=document)=> root.querySelector(sel);
+const list = $("#list");
+const fRole = $("#fRole");
+const fStatus = $("#fStatus");
+const q = $("#q");
+const btnReload = $("#btnReload");
 
-const state = { items:[], sub:null, pageSize:50 };
+let roles = [];
+let sub = null;
 
-const fmt = (iso)=> { try{ return new Date(iso).toLocaleString('pt-BR'); }catch{ return iso } };
+init().catch(console.error);
 
-async function load(){
-  const q = $("#q").value.trim();
-  const role = $("#fRole").value;
-  const status = $("#fStatus").value;
-  const [col, dir] = $("#fSort").value.split(".");
+async function init(){
+  roles = await fetchEffectiveRoles();
+  await reload();
+  [fRole, fStatus].forEach(el => el.addEventListener("change", reload));
+  q.addEventListener("input", debounce(reload, 250));
+  btnReload.addEventListener("click", reload);
+  subscribeRealtime();
+}
 
-  let query = supabase.from("registration_requests")
-    .select("*", { count:"exact" })
-    .order(col, { ascending: dir!=="desc" })
-    .range(0, state.pageSize-1);
+function subscribeRealtime(){
+  try{ if (sub) supabase.removeChannel(sub); }catch{}
+  sub = supabase
+    .channel("registration_requests_live")
+    .on("postgres_changes", { event:"*", schema:"public", table:"registration_requests" }, reload)
+    .subscribe();
+}
 
-  if (role)   query = query.eq("role_requested", role);
-  if (status) query = query.eq("status", status);
-  if (q)      query = query.or(`email.ilike.%${q}%,payload::text.ilike.%${q}%`);
+async function reload(){
+  const filters = {
+    role: fRole.value || null,
+    status: fStatus.value || null,
+    search: (q.value || "").trim()
+  };
+
+  let query = supabase.from("registration_requests").select("*").order("created_at",{ascending:false});
+  if (filters.role)   query = query.eq("role_requested", filters.role);
+  if (filters.status) query = query.eq("status", filters.status);
+  if (filters.search){
+    query = query.or([
+      `email.ilike.%${filters.search}%`,
+      `payload->>company.ilike.%${filters.search}%`,
+      `payload->>tenant.ilike.%${filters.search}%`,
+      `payload->>condo.ilike.%${filters.search}%`,
+      `payload->>unit.ilike.%${filters.search}%`
+    ].join(","));
+  }
 
   const { data, error } = await query;
-  if (error){ tbody.innerHTML = `<tr><td colspan="6" style="color:#ef4444;padding:14px">Erro: ${error.message}</td></tr>`; return; }
-
-  state.items = data;
-  render();
+  if (error){ list.innerHTML = `<div class="empty">Erro ao carregar solicitações: ${error.message}</div>`; return; }
+  render(data || []);
 }
 
-function render(){
-  if(!state.items.length){ tbody.innerHTML = `<tr><td colspan="6" style="color:#A3ADC2;padding:14px">Nenhum pedido.</td></tr>`; return; }
-  tbody.innerHTML = state.items.map(r => `
-    <tr data-id="${r.id}">
-      <td>${fmt(r.created_at)}</td>
-      <td>${r.email}</td>
-      <td><b style="color:#c9b6ff">${r.role_requested}</b></td>
-      <td><b style="color:${r.status==='PENDING'?'#F59E0B':(r.status==='APPROVED'?'#22C55E':'#EF4444')}">${r.status}</b></td>
-      <td>${r.reason?`<span style="font-size:12px;color:#A3ADC2">motivo: ${r.reason}</span>`:''}</td>
-      <td>
-        <button class="btnApprove" style="background:linear-gradient(90deg,#6C2BD9,#8B5CF6);color:#fff;border:none;border-radius:10px;padding:8px 10px">Aprovar</button>
-        <button class="btnReject"  style="background:#12182A;border:1px solid #223049;color:#E8ECF4;border-radius:10px;padding:8px 10px">Rejeitar</button>
-        <button class="btnView"    style="background:#12182A;border:1px solid #223049;color:#E8ECF4;border-radius:10px;padding:8px 10px">Ver</button>
+function render(rows){
+  if (!rows.length){ list.innerHTML = `<div class="empty">Nenhuma solicitação encontrada.</div>`; return; }
+
+  const canManageTenant = roles.includes("MASTER") || roles.includes("ADMIN_TENANT");
+  const canManageAdmin  = roles.includes("GESTOR_TENANTS");
+
+  const table = document.createElement("table");
+  table.className = "table";
+  table.innerHTML = `
+    <thead>
+      <tr>
+        <th>Quando</th><th>E-mail</th><th>Tipo</th><th>Dados</th><th>Status</th><th style="width:220px">Ações</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  `;
+  const tbody = $("tbody", table);
+
+  for (const r of rows){
+    const when = fmtDate(r.created_at);
+    const roleTag = `<span class="tag ${r.role_requested}">${roleLabel(r.role_requested)}</span>`;
+    const status = `<span class="status ${r.status || "PENDING"}">${statusLabel(r.status)}</span>`;
+    const payload = formatPayload(r);
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${when}</td>
+      <td>${escape(r.email)}</td>
+      <td>${roleTag}</td>
+      <td>${payload}</td>
+      <td>${status}</td>
+      <td class="cell-actions">
+        <button class="btn primary" data-act="approve">Aprovar</button>
+        <button class="btn ghost"   data-act="reject">Rejeitar</button>
       </td>
-    </tr>
-  `).join("");
-}
+    `;
 
-async function subscribe(){
-  if (state.sub) supabase.removeChannel(state.sub);
-  state.sub = supabase.channel("regreq-shell")
-    .on("postgres_changes", { event:"*", schema:"public", table:"registration_requests" }, payload=>{
-      const { eventType, new:row, old } = payload;
-      if (eventType==="INSERT"){ state.items.unshift(row); }
-      if (eventType==="UPDATE"){ const i=state.items.findIndex(x=>x.id===row.id); if(i>=0) state.items[i]=row; }
-      if (eventType==="DELETE"){ const i=state.items.findIndex(x=>x.id===old.id); if(i>=0) state.items.splice(i,1); }
-      render();
-    }).subscribe();
-}
+    const needGestor = r.role_requested === "ADMINISTRADORA";
+    const allowed = needGestor ? canManageAdmin : canManageTenant;
+    if (!allowed){
+      tr.querySelectorAll("button").forEach(b => { b.disabled = true; b.title = "Sem permissão"; });
+    }else{
+      tr.querySelector('[data-act="approve"]').addEventListener("click", ()=> onApprove(r));
+      tr.querySelector('[data-act="reject"]').addEventListener("click",  ()=> onReject(r));
+    }
 
-async function approveOrReject(id, accept){
-  let reason=null;
-  if(!accept){
-    dlgTitle.textContent = "Rejeitar solicitação";
-    dlgBody.innerHTML = `<label style="color:#A3ADC2">Motivo (opcional)</label>
-                         <div style="background:#12182A;border:1px solid #223049;border-radius:10px;padding:8px 10px;margin-top:6px">
-                           <input id="reason" placeholder="Ex.: dados inconsistentes" style="background:transparent;border:none;outline:none;color:#E8ECF4;width:100%"/>
-                         </div>`;
-    const r = await dlg.showModal(); if (r!=="ok") return;
-    reason = (document.getElementById("reason").value||"").trim();
+    tbody.appendChild(tr);
   }
-  const { error } = await supabase.rpc("approve_request", { p_request_id:id, p_accept:accept, p_reason: reason||null });
-  if (error){ toast("Erro: "+error.message); return; }
-  toast(accept ? "Aprovado!" : "Rejeitado.");
+
+  list.innerHTML = "";
+  list.appendChild(table);
 }
 
-tbody.addEventListener("click",(e)=>{
-  const tr = e.target.closest("tr"); if(!tr) return;
-  const id = tr.dataset.id;
-  const row = state.items.find(x=>x.id===id);
-  if (e.target.classList.contains("btnApprove")) approveOrReject(id,true);
-  if (e.target.classList.contains("btnReject"))  approveOrReject(id,false);
-  if (e.target.classList.contains("btnView")){
-    dlgTitle.textContent = "Detalhes do pedido";
-    dlgBody.innerHTML = `<div style="color:#A3ADC2">E-mail: <b>${row.email}</b> • Tipo: <b>${row.role_requested}</b> • Status: <b>${row.status}</b></div>
-                         <pre style="margin-top:8px;background:#0b1220;border:1px solid #19233a;border-radius:8px;padding:8px;max-height:260px;overflow:auto;color:#d8e1ff">${JSON.stringify(row.payload,null,2)}</pre>`;
-    dlg.showModal();
-  }
-});
+async function onApprove(row){
+  const note = prompt(`Aprovar solicitação de ${row.email} (${roleLabel(row.role_requested)})?\nObservação (opcional):`, "");
+  try{
+    const { error } = await supabase.rpc(RPC_NAME, { p_req_id: row.id, p_approve: true, p_note: note ?? null });
+    if (error) throw error;
+  }catch(err){ alert("Falha ao aprovar: " + err.message); }
+}
 
-// filtros com debounce
-const debounce=(fn,ms=350)=>{let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms)}};
-$("#q").addEventListener("input", debounce(load));
-$("#fRole").addEventListener("change", load);
-$("#fStatus").addEventListener("change", load);
-$("#fSort").addEventListener("change", load);
-$("#btnRefresh").addEventListener("click", load);
+async function onReject(row){
+  const note = prompt(`Rejeitar solicitação de ${row.email}? Motivo (opcional):`, "");
+  try{
+    const { error } = await supabase.rpc(RPC_NAME, { p_req_id: row.id, p_approve: false, p_note: note ?? null });
+    if (error) throw error;
+  }catch(err){ alert("Falha ao rejeitar: " + err.message); }
+}
 
-// boot
-await load();
-await subscribe();
+/* utils */
+function escape(s){ return String(s ?? "").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])) }
+function fmtDate(iso){ try{ const d=new Date(iso); return d.toLocaleString(undefined,{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});}catch{return iso} }
+function roleLabel(r){ return r==="ADMINISTRADORA"?"Administradora": r==="SINDICO"?"Síndico": r==="INQUILINO"?"Inquilino": r||"-"; }
+function statusLabel(s){ return s==="APPROVED"?"Aprovado": s==="REJECTED"?"Rejeitado":"Pendente"; }
+function formatPayload(r){
+  const p = r.payload || {};
+  if (r.role_requested==="ADMINISTRADORA") return `<b>Empresa:</b> ${escape(p.company||"-")} · <b>CNPJ:</b> ${escape(p.cnpj||"-")}`;
+  if (r.role_requested==="SINDICO")        return `<b>Tenant:</b> ${escape(p.tenant||"-")} · <b>Condomínio:</b> ${escape(p.condo||"-")}`;
+  if (r.role_requested==="INQUILINO")      return `<b>Tenant:</b> ${escape(p.tenant||"-")} · <b>Condomínio:</b> ${escape(p.condo||"-")} · <b>Unidade:</b> ${escape(p.unit||"-")}`;
+  return JSON.stringify(p);
+}
+function debounce(fn, ms=250){ let t=null; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
