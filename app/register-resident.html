@@ -1,8 +1,15 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+
+<!-- CSP (produção / GitHub Pages) -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://*.supabase.co https://*.supabase.in wss://*.supabase.co wss://*.supabase.in https://esm.sh; script-src 'self' https://esm.sh 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; frame-src 'self'; base-uri 'self'; form-action 'self'; worker-src 'self' blob:; object-src 'none'">
+
 <title>Condo • Cadastro de Inquilino</title>
+<link rel="icon" href="./favicon.svg"/>
+
 <style>
   :root{ --brand-start:#6C2BD9; --brand-end:#8B5CF6; --on-brand:#fff;
          --bg:#0B0F16; --text:#E8ECF4; --muted:#A3ADC2; --field:#12182A; --border:#233048; --radius:16px}
@@ -36,26 +43,36 @@
     </div>
     <button class="btn" type="submit">Enviar para aprovação</button>
     <div class="ok" id="ok"></div><div class="err" id="err"></div>
-    <div class="muted"><a href="register-select.html" style="color:#b3b8ff">Voltar</a></div>
+    <div class="muted"><a href="./register-select.html" style="color:#b3b8ff">Voltar</a></div>
   </form>
 </div>
 
 <script type="module">
   import { supabase } from "./supabaseClient.js";
+
+  // Pré-preenche e-mail, se veio por querystring
   const pre = new URLSearchParams(location.search).get("email");
   if (pre) document.querySelector('input[name="email"]').value = pre;
 
+  // URL absoluta correta para redireciono pós-confirmação (funciona no subpath do GitHub Pages)
+  const redirectTo = new URL("./index.html", location.href).href;
+
   async function signUpAndRequest(email, password, payload){
-    const { data, error } = await supabase.auth.signUp({
-      email, password, options:{ emailRedirectTo: location.origin + "/app/index.html" }
+    const { error: sErr } = await supabase.auth.signUp({
+      email, password, options:{ emailRedirectTo: redirectTo }
     });
-    if (error) throw new Error(error.message);
-    const { error: rErr } = await supabase.from('registration_requests')
+    if (sErr) throw new Error(sErr.message);
+
+    const { error: rErr } = await supabase
+      .from('registration_requests')
       .insert([{ email, role_requested:'INQUILINO', payload }]);
     if (rErr) throw new Error(rErr.message);
   }
 
-  const form = document.getElementById('form'), ok=document.getElementById('ok'), err=document.getElementById('err');
+  const form = document.getElementById('form'),
+        ok   = document.getElementById('ok'),
+        err  = document.getElementById('err');
+
   form.addEventListener('submit', async (e)=>{
     e.preventDefault(); ok.textContent=""; err.textContent="";
     const o = Object.fromEntries(new FormData(form).entries());
