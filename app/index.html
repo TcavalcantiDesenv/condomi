@@ -4,11 +4,11 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 
-<!-- CSP de backup: só funciona se o servidor NÃO enviar outro cabeçalho CSP -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://*.supabase.co https://*.supabase.in wss://*.supabase.co wss://*.supabase.in https://esm.sh http://127.0.0.1:* ws://127.0.0.1:* http://localhost:* ws://localhost:*; script-src 'self' 'unsafe-inline' https://esm.sh; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' data: https://fonts.gstatic.com; frame-src 'self'; base-uri 'self'; form-action 'self'; worker-src 'self' blob:; object-src 'none'">
+<!-- CSP de produção (GitHub Pages não tem headers próprios, então usamos <meta>) -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://*.supabase.co https://*.supabase.in wss://*.supabase.co wss://*.supabase.in https://esm.sh; script-src 'self' https://esm.sh 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' data: https://fonts.gstatic.com; frame-src 'self'; base-uri 'self'; form-action 'self'; worker-src 'self' blob:; object-src 'none'">
 
 <title>Condo • Administração</title>
-<link rel="icon" href="/favicon.svg"/>
+<link rel="icon" href="./favicon.svg"/>
 
 <style>
   :root{
@@ -58,15 +58,18 @@
 </div>
 
 <script type="module">
+  // imports relativos (estamos em /app)
   import { supabase } from "./supabaseClient.js";
   import "./cc-sidebar.js";
   import { navigate, initRouter } from "./router.js";
 
+  // se não houver sessão, volta ao login RELATIVO (./login.html)
   const { data: { session } } = await supabase.auth.getSession();
-  if (!session) { location.href = "app/login.html"; }
+  if (!session) { location.href = "./login.html"; }
 
   document.getElementById("btnLogout").onclick = async ()=>{
-    await supabase.auth.signOut(); location.href = "app/login.html";
+    await supabase.auth.signOut();
+    location.href = "./login.html";
   };
 
   // PWA install
@@ -77,16 +80,19 @@
     deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt=null;
   };
 
+  // rotas usando caminhos RELATIVOS a /app
   initRouter({
     routes: {
-      "/":               { html: "app/views/dashboard.html" },
-      "/aprovacoes":     { html: "app/views/admin-requests.html", js: "app/views/admin-requests.js",
+      "/":               { html: "./views/dashboard.html" },
+      "/aprovacoes":     { html: "./views/admin-requests.html",
+                           js:   "./views/admin-requests.js",
                            roles: ["GESTOR_TENANTS","MASTER","ADMIN_TENANT","MANAGER_CONDO"] }
     },
     fallback: "/",
     target: document.getElementById("view")
   });
 
+  // navegação disparada pelo sidebar
   window.addEventListener("cc:navigate", (e)=> navigate(e.detail.path));
 </script>
 </body>
