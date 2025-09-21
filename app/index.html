@@ -63,10 +63,10 @@
   import { navigate, initRouter } from "./router.js";
 
   const { data: { session } } = await supabase.auth.getSession();
-  if (!session) { location.href = "/app/login.html"; }
+  if (!session) { location.href = "app/login.html"; }
 
   document.getElementById("btnLogout").onclick = async ()=>{
-    await supabase.auth.signOut(); location.href = "/app/login.html";
+    await supabase.auth.signOut(); location.href = "app/login.html";
   };
 
   // PWA install
@@ -79,8 +79,8 @@
 
   initRouter({
     routes: {
-      "/":               { html: "/app/views/dashboard.html" },
-      "/aprovacoes":     { html: "/app/views/admin-requests.html", js: "/app/views/admin-requests.js",
+      "/":               { html: "app/views/dashboard.html" },
+      "/aprovacoes":     { html: "app/views/admin-requests.html", js: "app/views/admin-requests.js",
                            roles: ["GESTOR_TENANTS","MASTER","ADMIN_TENANT","MANAGER_CONDO"] }
     },
     fallback: "/",
