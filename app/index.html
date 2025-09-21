@@ -4,52 +4,184 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 
-<!-- CSP de produção (GitHub Pages não tem headers próprios, então usamos <meta>) -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://*.supabase.co https://*.supabase.in wss://*.supabase.co wss://*.supabase.in https://esm.sh; script-src 'self' https://esm.sh 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' data: https://fonts.gstatic.com; frame-src 'self'; base-uri 'self'; form-action 'self'; worker-src 'self' blob:; object-src 'none'">
+<!-- CSP amigável ao GitHub Pages / live-server -->
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'self';
+  script-src 'self' 'unsafe-inline';
+  style-src  'self' 'unsafe-inline';
+  img-src    'self' data: blob:;
+  font-src   'self' data:;
+  connect-src 'self';
+  base-uri 'self'; form-action 'self';
+  frame-src 'self';
+">
 
-<title>Condo • Administração</title>
-<link rel="icon" href="./favicon.svg"/>
+<title>Condo • Painel</title>
+<link rel="icon" href="/favicon.svg"/>
 
 <style>
   :root{
-    --brand-start:#6C2BD9; --brand-end:#8B5CF6; --on-brand:#fff;
-    --bg:#0B0F16; --surface:#0F1420; --surface-2:#12182A; --text:#E8ECF4; --muted:#A3ADC2;
-    --border:#223049; --radius:14px; --gap:12px;
-    --ok:#22C55E; --warn:#F59E0B; --danger:#EF4444;
+    --brand-1:#6C2BD9; --brand-2:#8B5CF6; --on-brand:#fff;
+    --bg:#0B0F16; --panel:#0F1420; --panel-2:#12182A;
+    --text:#E8ECF4; --muted:#A3ADC2; --border:#223049;
+    --radius:14px; --gap:12px; --hover:#ffffff1a;
   }
-  *{box-sizing:border-box} html,body{height:100%} body{margin:0;background:linear-gradient(160deg,#0b0f16,#0d1020);color:var(--text)}
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0; color:var(--text); background:linear-gradient(160deg,#0b0f16,#0d1020);}
+
+  /* layout */
   .layout{display:grid; grid-template-columns: 280px 1fr; min-height:100vh}
-  @media (max-width: 980px){ .layout{ grid-template-columns: 1fr } }
-  header.appbar{
-    position:sticky; top:0; z-index:3;
-    background:linear-gradient(90deg,var(--brand-start),var(--brand-end)); color:var(--on-brand);
-    display:flex; align-items:center; justify-content:space-between; padding:10px 14px; gap:10px;
+  @media (max-width:1024px){ .layout{ grid-template-columns: 70px 1fr } }
+  @media (max-width:780px){  .layout{ grid-template-columns: 1fr } }
+
+  /* sidebar */
+  aside{
+    position:relative; background:linear-gradient(180deg,#0f1420,#0f1420cc);
+    border-right:1px solid #ffffff10; padding:10px 10px 18px; display:flex; flex-direction:column; gap:10px;
   }
-  header .left{display:flex; align-items:center; gap:10px}
-  .logo{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:#fff1;color:#fff;border:1px solid #ffffff33}
-  .brand{font-weight:800}
-  .actions{display:flex; gap:8px}
-  .btn{border:none; border-radius:10px; padding:8px 10px; cursor:pointer; font-weight:700}
-  .btn.ghost{background:transparent; color:#fff; border:1px solid #ffffff33}
-  .btn.install{background:#ffffff22; color:#fff}
+  .sb-head{ display:flex; align-items:center; justify-content:space-between; color:#cfe; padding:6px 8px }
+  .sb-title{ font-weight:800; display:flex; align-items:center; gap:8px }
+  .sb-btn{ appearance:none; border:none; background:transparent; color:#dbe; cursor:pointer; border-radius:8px; padding:8px }
+  .sb-btn:hover{ background:var(--hover) }
+  .sb-section{ color:#9fb; opacity:.6; font-size:12px; padding:8px 8px 2px }
+  nav a, nav button.sb-item{
+    width:100%; text-align:left; display:flex; align-items:center; gap:10px;
+    padding:10px 12px; border-radius:10px; border:1px solid transparent; color:#e6ecff;
+    background:transparent; text-decoration:none; cursor:pointer;
+  }
+  nav a:hover, nav button.sb-item:hover{ background:var(--hover) }
+  nav a.active{ background:#ffffff15; border-color:#ffffff25 }
+  .submenu{ margin:6px 0 8px 0; padding-left:8px; display:grid; gap:6px; }
+  .submenu[hidden]{ display:none }
+  .caret{ margin-left:auto; opacity:.8; transform:rotate(-90deg); transition:.2s }
+  .open .caret{ transform:rotate(0deg) }
+
+  /* appbar */
+  header.appbar{
+    position:sticky; top:0; z-index:2;
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:10px 14px; background:linear-gradient(90deg,var(--brand-1),var(--brand-2)); color:var(--on-brand);
+    border-bottom:1px solid #0003;
+  }
+  .brand{ display:flex; align-items:center; gap:10px; font-weight:800 }
+  .brand .logo{ width:34px; height:34px; border-radius:50%; display:grid; place-items:center;
+                background:#fff1; border:1px solid #fff3 }
+  .actions{ display:flex; gap:8px }
+  .btn{ border:none; border-radius:10px; padding:8px 12px; cursor:pointer; font-weight:700 }
+  .btn.install{ background:#ffffff22; color:#fff }
+  .btn.ghost{ background:transparent; color:#fff; border:1px solid #ffffff33 }
+
   main#view{ padding:14px; }
-  .guard-msg{ padding:18px; border:1px dashed var(--border); border-radius:12px; color:var(--muted); background:linear-gradient(180deg,#ffffff08,#ffffff04) }
+  .placeholder{ border:1px dashed var(--border); background:linear-gradient(180deg,#ffffff08,#ffffff04);
+                padding:18px; border-radius:12px; color:var(--muted) }
 </style>
 </head>
 <body>
 
 <div class="layout">
-  <cc-sidebar></cc-sidebar>
+  <!-- SIDEBAR -->
+  <aside id="sidebar">
+    <div class="sb-head">
+      <div class="sb-title"><span style="font-weight:900">Menu</span></div>
+      <button id="btnCollapse" class="sb-btn" title="Recolher/Expandir">≡</button>
+    </div>
 
+    <div class="sb-section">GERAL</div>
+    <nav>
+      <a data-route="#/dashboard" class="sb-item">Dashboard</a>
+    </nav>
+
+    <div class="sb-section">OPERACIONAL</div>
+    <nav>
+      <!-- Moradores -->
+      <button class="sb-item has-sub" data-sub="moradores">
+        Moradores <span class="caret">▶</span>
+      </button>
+      <div class="submenu" id="sub-moradores" hidden>
+        <a data-route="#/moradores/lista">Lista</a>
+        <a data-route="#/moradores/cadastro">Cadastro</a>
+      </div>
+
+      <!-- Administradores -->
+      <button class="sb-item has-sub" data-sub="admins">
+        Administradores <span class="caret">▶</span>
+      </button>
+      <div class="submenu" id="sub-admins" hidden>
+        <a data-route="#/admins/lista">Lista</a>
+        <a data-route="#/admins/cadastro">Cadastro</a>
+      </div>
+
+      <!-- Comunicação -->
+      <button class="sb-item has-sub" data-sub="comunicacao">
+        Comunicação <span class="caret">▶</span>
+      </button>
+      <div class="submenu" id="sub-comunicacao" hidden>
+        <a data-route="#/comunicados/feed">Feed</a>
+        <a data-route="#/comunicados/envio">Enviar comunicado</a>
+      </div>
+
+      <!-- Reservas -->
+      <button class="sb-item has-sub" data-sub="reservas">
+        Reservas <span class="caret">▶</span>
+      </button>
+      <div class="submenu" id="sub-reservas" hidden>
+        <a data-route="#/reservas/agenda">Agenda</a>
+        <a data-route="#/reservas/locais">Áreas comuns</a>
+      </div>
+
+      <!-- Portaria -->
+      <button class="sb-item has-sub" data-sub="portaria">
+        Portaria <span class="caret">▶</span>
+      </button>
+      <div class="submenu" id="sub-portaria" hidden>
+        <a data-route="#/portaria/visitantes">Visitantes</a>
+        <a data-route="#/portaria/ocorrencias">Ocorrências</a>
+      </div>
+
+      <!-- Operacional -->
+      <button class="sb-item has-sub" data-sub="operacional">
+        Operacional <span class="caret">▶</span>
+      </button>
+      <div class="submenu" id="sub-operacional" hidden>
+        <a data-route="#/operacional/calendario">Calendário de Manutenção</a>
+        <a data-route="#/operacional/dividas">Dívidas Operacionais</a>
+        <a data-route="#/operacional/estoque">Estoque</a>
+        <a data-route="#/operacional/patrimonio">Patrimônio</a>
+        <a data-route="#/operacional/prestadores">Prestadores de Serviço</a>
+      </div>
+
+      <!-- Medições -->
+      <a data-route="#/medicoes" class="sb-item">Medições</a>
+
+      <!-- Financeiro -->
+      <button class="sb-item has-sub" data-sub="financeiro">
+        Financeiro <span class="caret">▶</span>
+      </button>
+      <div class="submenu" id="sub-financeiro" hidden>
+        <a data-route="#/financeiro/visao-geral">Visão Geral</a>
+        <a data-route="#/financeiro/lancamentos">Lançamentos</a>
+        <a data-route="#/financeiro/rateio">Rateio por Unidades</a>
+        <a data-route="#/financeiro/lote">Cobrança em Lote</a>
+        <a data-route="#/financeiro/avulsa">Cobrança Avulsa</a>
+        <a data-route="#/financeiro/relatorios">Relatórios</a>
+      </div>
+
+      <!-- Configurações -->
+      <a data-route="#/config" class="sb-item">Configurações</a>
+    </nav>
+  </aside>
+
+  <!-- CONTEÚDO -->
   <div>
     <header class="appbar">
-      <div class="left">
+      <div class="brand">
         <div class="logo">◆</div>
-        <div class="brand">Seu Condomínio</div>
+        <div>Seu Condomínio</div>
       </div>
       <div class="actions">
-        <button id="btnInstall" class="btn install" title="Instalar WebApp">Instalar</button>
-        <button id="btnLogout" class="btn ghost">Sair</button>
+        <button id="btnInstall" class="btn install">Instalar</button>
+        <button id="btnLogout" class="btn ghost" title="Sair">Sair</button>
       </div>
     </header>
 
@@ -58,42 +190,116 @@
 </div>
 
 <script type="module">
-  // imports relativos (estamos em /app)
-  import { supabase } from "./supabaseClient.js";
-  import "./cc-sidebar.js";
-  import { navigate, initRouter } from "./router.js";
+  /*********** Sidebar: colapsar/expandir + submenus ***********/
+  const qs = (s, r=document)=> r.querySelector(s);
+  const qsa = (s, r=document)=> [...r.querySelectorAll(s)];
 
-  // se não houver sessão, volta ao login RELATIVO (./login.html)
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) { location.href = "./login.html"; }
+  const sidebar = qs('#sidebar');
+  const btnCollapse = qs('#btnCollapse');
 
-  document.getElementById("btnLogout").onclick = async ()=>{
-    await supabase.auth.signOut();
-    location.href = "./login.html";
-  };
+  // Salva estado de colapso no localStorage
+  const kCollapsed = 'cc:sb:collapsed';
+  function applyCollapsed(){
+    const collapsed = localStorage.getItem(kCollapsed)==='1';
+    sidebar.style.width = collapsed ? '70px' : '';
+    // esconder textos quando colapsado
+    qsa('nav a, nav button.sb-item', sidebar).forEach(el=>{
+      el.style.justifyContent = collapsed ? 'center' : 'flex-start';
+    });
+    qsa('.submenu', sidebar).forEach(sm => sm.hidden = collapsed ? true : sm.hidden);
+  }
+  btnCollapse.addEventListener('click', ()=>{
+    const collapsed = localStorage.getItem(kCollapsed)==='1';
+    localStorage.setItem(kCollapsed, collapsed ? '0' : '1');
+    applyCollapsed();
+  });
+  applyCollapsed();
 
-  // PWA install
-  let deferredPrompt=null;
+  // Submenus
+  qsa('button.has-sub', sidebar).forEach(btn=>{
+    const id = 'sub-' + btn.dataset.sub;
+    const box = qs('#'+id);
+    const key = 'cc:sb:open:'+id;
+    const open = localStorage.getItem(key) !== '0';
+    btn.classList.toggle('open', open);
+    box.hidden = !open;
+
+    btn.addEventListener('click', ()=>{
+      const to = !btn.classList.contains('open');
+      btn.classList.toggle('open', to);
+      box.hidden = !to;
+      localStorage.setItem(key, to ? '1':'0');
+    });
+  });
+
+  // Marcação de ativo e navegação
+  function markActive(hash){
+    qsa('a[data-route]').forEach(a=> a.classList.toggle('active', a.getAttribute('data-route')===hash));
+  }
+  qsa('a[data-route]').forEach(a=>{
+    a.addEventListener('click', (e)=>{
+      e.preventDefault();
+      const hash = a.getAttribute('data-route');
+      if (location.hash!==hash){ location.hash = hash; }
+      markActive(hash);
+    });
+  });
+
+  /*********** PWA install (deferred prompt) ***********/
+  let deferredPrompt = null;
   window.addEventListener('beforeinstallprompt',(e)=>{ e.preventDefault(); deferredPrompt=e; });
-  document.getElementById('btnInstall').onclick = async ()=>{
-    if(!deferredPrompt) return;
+  qs('#btnInstall').onclick = async ()=>{
+    if (!deferredPrompt) return;
     deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt=null;
   };
 
-  // rotas usando caminhos RELATIVOS a /app
-  initRouter({
-    routes: {
-      "/":               { html: "./views/dashboard.html" },
-      "/aprovacoes":     { html: "./views/admin-requests.html",
-                           js:   "./views/admin-requests.js",
-                           roles: ["GESTOR_TENANTS","MASTER","ADMIN_TENANT","MANAGER_CONDO"] }
-    },
-    fallback: "/",
-    target: document.getElementById("view")
-  });
+  // Sair (por enquanto só volta ao login.html)
+  qs('#btnLogout').onclick = ()=> location.href = './login.html';
 
-  // navegação disparada pelo sidebar
-  window.addEventListener("cc:navigate", (e)=> navigate(e.detail.path));
+  /*********** Router ***********/
+  import { initRouter, navigate } from './router.js';
+
+  const routes = {
+    '#/dashboard':                { html: './views/dashboard.html' },
+
+    '#/moradores/lista':          { html: './views/moradores-lista.html' },
+    '#/moradores/cadastro':       { html: './views/moradores-cadastro.html' },
+
+    '#/admins/lista':             { html: './views/admins-lista.html' },
+    '#/admins/cadastro':          { html: './views/admins-cadastro.html' },
+
+    '#/comunicados/feed':         { html: './views/comunicados-feed.html' },
+    '#/comunicados/envio':        { html: './views/comunicados-envio.html' },
+
+    '#/reservas/agenda':          { html: './views/reservas-agenda.html' },
+    '#/reservas/locais':          { html: './views/reservas-locais.html' },
+
+    '#/portaria/visitantes':      { html: './views/portaria-visitantes.html' },
+    '#/portaria/ocorrencias':     { html: './views/portaria-ocorrencias.html' },
+
+    '#/operacional/calendario':   { html: './views/operacional-calendario.html' },
+    '#/operacional/dividas':      { html: './views/operacional-dividas.html' },
+    '#/operacional/estoque':      { html: './views/operacional-estoque.html' },
+    '#/operacional/patrimonio':   { html: './views/operacional-patrimonio.html' },
+    '#/operacional/prestadores':  { html: './views/operacional-prestadores.html' },
+
+    '#/medicoes':                 { html: './views/medicoes.html' },
+
+    '#/financeiro/visao-geral':   { html: './views/financeiro-visao-geral.html' },
+    '#/financeiro/lancamentos':   { html: './views/financeiro-lancamentos.html' },
+    '#/financeiro/rateio':        { html: './views/financeiro-rateio.html' },
+    '#/financeiro/lote':          { html: './views/financeiro-lote.html' },
+    '#/financeiro/avulsa':        { html: './views/financeiro-avulsa.html' },
+    '#/financeiro/relatorios':    { html: './views/financeiro-relatorios.html' },
+
+    '#/config':                   { html: './views/config.html' }
+  };
+
+  initRouter({ routes, target: qs('#view'), fallback: '#/dashboard' });
+
+  window.addEventListener('hashchange', ()=> markActive(location.hash||'#/dashboard'));
+  // marca ativo inicial
+  markActive(location.hash||'#/dashboard');
 </script>
 </body>
 </html>
