@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Condo • Aprovação de Cadastros</title>
+<style>
+  :root{
+    --brand-start:#6C2BD9; --brand-end:#8B5CF6; --on-brand:#fff;
+    --bg:#0B0F16; --surface:#0F1420; --surface-2:#12182A; --text:#E8ECF4; --muted:#A3ADC2;
+    --border:#223049; --ok:#22C55E; --warn:#F59E0B; --danger:#EF4444; --radius:14px; --gap:12px;
+  }
+  *{box-sizing:border-box} html,body{height:100%}
+  body{margin:0; color:var(--text); background:linear-gradient(160deg,#0b0f16,#0d1020); display:flex; min-height:100%}
+  .shell{flex:1; display:grid; grid-template-rows:auto 1fr}
+  header{
+    background:linear-gradient(90deg,var(--brand-start),var(--brand-end)); color:var(--on-brand);
+    padding:16px 18px; display:flex; align-items:center; gap:14px; position:sticky; top:0; z-index:2;
+  }
+  header h1{margin:0; font-size:18px}
+  main{ padding:14px; display:grid; gap:14px }
+  .card{ background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+         border:1px solid rgba(255,255,255,.08); border-radius:var(--radius); padding:12px; }
+  .filters{ display:grid; grid-template-columns: 1fr repeat(3, minmax(140px, 200px)) 120px; gap:10px }
+  @media (max-width: 920px){ .filters{ grid-template-columns:1fr 1fr; } }
+  .field{ background:var(--surface-2); border:1px solid var(--border); border-radius:10px; padding:8px 10px; display:flex; gap:8px; align-items:center }
+  .field input, .field select{ background:transparent; border:none; outline:none; color:var(--text); width:100% }
+  .btn{ border:none; border-radius:10px; padding:10px 12px; font-weight:700; cursor:pointer; }
+  .btn.primary{ background:linear-gradient(90deg,var(--brand-start),var(--brand-end)); color:var(--on-brand) }
+  .btn.ghost{ background:var(--surface-2); color:var(--text); border:1px solid var(--border) }
+  table{ width:100%; border-collapse:collapse; font-size:14px }
+  thead th{ text-align:left; font-weight:700; color:#d9ddff; border-bottom:1px solid var(--border); padding:10px 8px; position:sticky; top:0; background:var(--surface) }
+  tbody td{ border-bottom:1px solid var(--border); padding:10px 8px; vertical-align:top }
+  .status{ font-weight:700; }
+  .PENDING{ color:var(--warn) } .APPROVED{ color:var(--ok) } .REJECTED{ color:var(--danger) }
+  .role{ font-weight:700; color:#c9b6ff }
+  .actions{ display:flex; gap:8px; flex-wrap:wrap }
+  .pill{ display:inline-flex; padding:4px 8px; border-radius:999px; border:1px solid var(--border); background:var(--surface-2); color:var(--muted); font-size:12px }
+  .hint{ color:var(--muted); font-size:12px }
+  .empty{ color:var(--muted); padding:18px }
+  .toast{ position:fixed; right:12px; bottom:12px; background:#0f172a; color:#e2e8f0; padding:10px 12px; border-radius:10px; border:1px solid #334155; opacity:.96 }
+  dialog{ border:none; border-radius:14px; padding:0; background:transparent }
+  .modal{ background:#0f1420; border:1px solid var(--border); border-radius:14px; padding:16px; width:min(520px, 92vw); }
+  .modal header{ background:unset; color:var(--text); padding:0 0 10px 0 }
+  .modal footer{ display:flex; justify-content:flex-end; gap:8px; padding-top:12px }
+  code.json{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size:12px; background:#0b1220; border:1px solid #19233a; border-radius:8px; padding:8px; display:block; max-height:240px; overflow:auto }
+</style>
+</head>
+<body>
+<div class="shell">
+  <header>
+    <h1>Aprovação de Cadastros</h1>
+    <span class="hint">Pedidos vindos de <code>registration_requests</code> (realtime)</span>
+  </header>
+
+  <main>
+    <section class="card">
+      <div class="filters">
+        <div class="field"><input id="q" placeholder="Buscar por e-mail ou observação…"/></div>
+        <div class="field">
+          <select id="fRole">
+            <option value="">Tipo: Todos</option>
+            <option value="ADMINISTRADORA">Administradora</option>
+            <option value="SINDICO">Síndico</option>
+            <option value="INQUILINO">Inquilino</option>
+          </select>
+        </div>
+        <div class="field">
+          <select id="fStatus">
+            <option value="">Status: Todos</option>
+            <option value="PENDING">Pendente</option>
+            <option value="APPROVED">Aprovado</option>
+            <option value="REJECTED">Rejeitado</option>
+          </select>
+        </div>
+        <div class="field">
+          <select id="fSort">
+            <option value="created_at.desc">Mais recentes</option>
+            <option value="created_at.asc">Mais antigos</option>
+            <option value="email.asc">E-mail A→Z</option>
+            <option value="email.desc">E-mail Z→A</option>
+          </select>
+        </div>
+        <button class="btn ghost" id="btnRefresh">Atualizar</button>
+      </div>
+    </section>
+
+    <section class="card" style="overflow:auto">
+      <table id="grid" aria-label="Pedidos de cadastro">
+        <thead>
+          <tr>
+            <th>Quando</th>
+            <th>E-mail</th>
+            <th>Tipo</th>
+            <th>Status</th>
+            <th>Detalhes</th>
+            <th style="width:240px">Ações</th>
+          </tr>
+        </thead>
+        <tbody id="tbody">
+          <tr><td colspan="6" class="empty">Carregando…</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+</div>
+
+<dialog id="dlg">
+  <form method="dialog" class="modal">
+    <header><h3 id="dlgTitle" style="margin:0"></h3></header>
+    <div id="dlgBody"></div>
+    <footer>
+      <button class="btn ghost" value="cancel">Cancelar</button>
+      <button class="btn primary" value="ok">Confirmar</button>
+    </footer>
+  </form>
+</dialog>
+
+<div id="toast" class="toast" style="display:none"></div>
+
+<script type="module">
+  import { supabase } from "./supabaseClient.js";
+
+  // --- util
+  const $ = sel => document.querySelector(sel);
+  const tbody = $("#tbody");
+  const state = { items:[], page:1, pageSize:50, sub:null };
+
+  function fmtDate(iso){
+    try{ const d=new Date(iso); return d.toLocaleString('pt-BR'); }catch{ return iso }
+  }
+  function toast(msg){ const t=$("#toast"); t.textContent=msg; t.style.display="block"; setTimeout(()=>t.style.display="none", 2500); }
+
+  // --- fetch com filtros
+  async function loadData(){
+    const q = $("#q").value.trim();
+    const role = $("#fRole").value;
+    const status = $("#fStatus").value;
+    const sort = $("#fSort").value.split(".");
+
+    let query = supabase.from("registration_requests")
+      .select("*", { count:"exact" })
+      .order(sort[0], { ascending: sort[1] !== "desc" })
+      .range(0, state.pageSize-1);
+
+    if (role) query = query.eq("role_requested", role);
+    if (status) query = query.eq("status", status);
+    if (q) {
+      // busca por email ou texto no payload/observação
+      query = query.or(`email.ilike.%${q}%,payload::text.ilike.%${q}%`);
+    }
+
+    const { data, error } = await query;
+    if (error){ tbody.innerHTML = `<tr><td colspan="6" class="empty">Erro: ${error.message}</td></tr>`; return; }
+
+    state.items = data;
+    render();
+  }
+
+  function render(){
+    if (!state.items.length){
+      tbody.innerHTML = `<tr><td colspan="6" class="empty">Nenhum pedido.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = state.items.map(r => `
+      <tr data-id="${r.id}">
+        <td>${fmtDate(r.created_at)}</td>
+        <td>${r.email}</td>
+        <td><span class="role">${r.role_requested}</span></td>
+        <td><span class="status ${r.status}">${r.status}</span></td>
+        <td>
+          <span class="pill">by: ${r.created_by ? r.created_by.slice(0,8) : 'self'}</span>
+          ${r.reason ? `<span class="pill">motivo: ${r.reason}</span>`:''}
+        </td>
+        <td class="actions">
+          <button class="btn primary" data-act="approve">Aprovar</button>
+          <button class="btn ghost" data-act="reject">Rejeitar</button>
+          <button class="btn ghost" data-act="view">Ver payload</button>
+        </td>
+      </tr>
+    `).join("");
+  }
+
+  // --- realtime
+  async function subscribeRealtime(){
+    // encerra anterior
+    if (state.sub){ supabase.removeChannel(state.sub); }
+    state.sub = supabase.channel("regreq")
+      .on("postgres_changes", { event:"*", schema:"public", table:"registration_requests" }, payload => {
+        const { eventType, new:row, old } = payload;
+        if (eventType === "INSERT"){
+          state.items.unshift(row);
+        } else if (eventType === "UPDATE"){
+          const i = state.items.findIndex(x => x.id === row.id);
+          if (i>=0) state.items[i]=row;
+        } else if (eventType === "DELETE"){
+          const i = state.items.findIndex(x => x.id === old.id);
+          if (i>=0) state.items.splice(i,1);
+        }
+        render();
+      }).subscribe((s) => { /* opcional: status */ });
+  }
+
+  // --- ações
+  const dlg = $("#dlg"), dlgTitle=$("#dlgTitle"), dlgBody=$("#dlgBody");
+
+  async function approveOrReject(id, accept){
+    // dialogo para motivo em rejeição
+    let reason = null;
+    if (!accept){
+      dlgTitle.textContent = "Rejeitar solicitação";
+      dlgBody.innerHTML = `<label class="hint">Informe um motivo (opcional)</label>
+                           <div class="field"><input id="reason" placeholder="Ex.: dados inconsistentes"></div>`;
+      const res = await dlg.showModal(); // polyfill não necessário nos browsers modernos
+      if (res !== "ok") return;
+      reason = (document.getElementById("reason").value || "").trim();
+    }
+    const { error } = await supabase.rpc("approve_request",
+      { p_request_id: id, p_accept: accept, p_reason: reason || null });
+    if (error){ toast("Erro: " + error.message); return; }
+    toast(accept ? "Aprovado!" : "Rejeitado.");
+    // a tabela atualizará via realtime (UPDATE feito pela RPC)
+  }
+
+  function viewPayload(row){
+    dlgTitle.textContent = "Detalhes do pedido";
+    dlgBody.innerHTML = `
+      <div class="hint">E-mail: <b>${row.email}</b></div>
+      <div class="hint">Tipo: <b>${row.role_requested}</b> | Status: <b>${row.status}</b></div>
+      <div style="height:8px"></div>
+      <code class="json">${JSON.stringify(row.payload, null, 2)}</code>
+    `;
+    dlg.showModal();
+  }
+
+  tbody.addEventListener("click", (e)=>{
+    const btn = e.target.closest("button[data-act]"); if (!btn) return;
+    const tr = e.target.closest("tr"); const id = tr?.dataset?.id;
+    if (!id) return;
+    const row = state.items.find(x => x.id === id);
+    const act = btn.dataset.act;
+    if (act === "approve") approveOrReject(id, true);
+    if (act === "reject") approveOrReject(id, false);
+    if (act === "view") viewPayload(row);
+  });
+
+  // filtros
+  const deb = (fn,ms=350)=>{ let t; return (...a)=>{clearTimeout(t); t=setTimeout(()=>fn(...a),ms)} };
+  $("#q").addEventListener("input", deb(loadData));
+  $("#fRole").addEventListener("change", loadData);
+  $("#fStatus").addEventListener("change", loadData);
+  $("#fSort").addEventListener("change", loadData);
+  $("#btnRefresh").addEventListener("click", loadData);
+
+  // init
+  await loadData();
+  await subscribeRealtime();
+</script>
+</body>
+</html>

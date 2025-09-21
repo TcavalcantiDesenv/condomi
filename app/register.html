@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Condo • Cadastro</title>
+<style>
+  :root{
+    --brand-start:#6C2BD9; --brand-end:#8B5CF6; --on-brand:#fff;
+    --bg:#0B0F16; --panel:#0F1420; --text:#E8ECF4; --muted:#A3ADC2;
+    --field:#12182A; --border:#233048; --radius:14px; --gap:14px; --accent:#7C3AED;
+  }
+  *{box-sizing:border-box} html,body{height:100%}
+  body{margin:0; background:linear-gradient(160deg,#0b0f16,#0d1020); color:var(--text); display:grid; place-items:center; padding:24px}
+  .wrap{ width:min(1100px,100%); display:grid; gap:18px }
+  .header{ display:flex; justify-content:space-between; align-items:center }
+  .brand{ display:flex; align-items:center; gap:10px; font-weight:700 }
+  .brand .logo{ width:34px; height:34px; border-radius:50%;
+    background:linear-gradient(135deg,var(--brand-start),var(--brand-end)); display:grid; place-items:center; color:#fff; font-weight:900}
+  h1{ margin:0; font-size:clamp(22px,3vw,28px) }
+  .cards{ display:grid; grid-template-columns: repeat(3,1fr); gap:18px }
+  @media (max-width:900px){ .cards{ grid-template-columns:1fr } }
+  .card{
+    background:linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+    border:1px solid rgba(255,255,255,0.08); border-radius:16px; padding:16px; display:grid; gap:10px
+  }
+  .card h3{ margin:0 0 4px 0 }
+  .field{ background:var(--field); border:1px solid var(--border); border-radius:10px; padding:10px 12px; display:flex; gap:10px; align-items:center }
+  .field input, .field select, .field textarea{ background:transparent; border:none; outline:none; color:var(--text); width:100%; font-size:14px }
+  .btn{ border:none; cursor:pointer; border-radius:10px; padding:12px 14px; font-weight:700;
+        background:linear-gradient(90deg,var(--brand-start),var(--brand-end)); color:var(--on-brand)}
+  .muted{ color:var(--muted); font-size:13px }
+  .row{ display:grid; grid-template-columns:1fr 1fr; gap:10px } @media (max-width:780px){ .row{ grid-template-columns:1fr } }
+  .ok{ color:#22c55e; font-size:13px; min-height:18px } .err{ color:#ef4444; font-size:13px; min-height:18px }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="header">
+    <div class="brand"><div class="logo">◆</div> <span>Seu Condomínio</span></div>
+    <a href="login.html" class="muted">Já tem conta? Entrar</a>
+  </div>
+
+  <h1>Crie sua conta</h1>
+  <p class="muted">Escolha um tipo de cadastro. Pedidos 2 (Síndico) e 3 (Inquilino) precisam de aprovação do Administrador. Pedido 1 (Administradora) exige aprovação do <strong>Gestor de Administradoras</strong>.</p>
+
+  <div class="cards">
+    <!-- 1) Administradora (Master) -->
+    <form id="formAdminTenant" class="card">
+      <h3>1 — Administradora (Usuário Master)</h3>
+      <div class="row">
+        <div class="field"><input name="company" placeholder="Razão social da administradora" required></div>
+        <div class="field"><input name="cnpj" placeholder="CNPJ (opcional)"></div>
+      </div>
+      <div class="row">
+        <div class="field"><input name="email" type="email" placeholder="E-mail" required></div>
+        <div class="field"><input name="password" type="password" placeholder="Senha" required></div>
+      </div>
+      <div class="field"><textarea name="notes" rows="3" placeholder="Observações (opcional)"></textarea></div>
+      <button class="btn" type="submit">Solicitar aprovação</button>
+      <div class="ok" id="ok1"></div><div class="err" id="err1"></div>
+    </form>
+
+    <!-- 2) Síndico / Administrador de Condomínio -->
+    <form id="formManager" class="card">
+      <h3>2 — Síndico (Administrador do Condomínio)</h3>
+      <div class="row">
+        <div class="field"><input name="tenant" placeholder="Administradora (nome ou ID)"></div>
+        <div class="field"><input name="condo" placeholder="Condomínio (nome ou ID)"></div>
+      </div>
+      <div class="row">
+        <div class="field"><input name="email" type="email" placeholder="E-mail" required></div>
+        <div class="field"><input name="password" type="password" placeholder="Senha" required></div>
+      </div>
+      <div class="field"><textarea name="notes" rows="3" placeholder="Mensagem ao administrador (opcional)"></textarea></div>
+      <button class="btn" type="submit">Enviar para aprovação</button>
+      <div class="ok" id="ok2"></div><div class="err" id="err2"></div>
+    </form>
+
+    <!-- 3) Inquilino / Morador -->
+    <form id="formResident" class="card">
+      <h3>3 — Inquilino (Usuário)</h3>
+      <div class="row">
+        <div class="field"><input name="tenant" placeholder="Administradora (nome ou ID)"></div>
+        <div class="field"><input name="condo" placeholder="Condomínio (nome ou ID)"></div>
+      </div>
+      <div class="field"><input name="unit" placeholder="Unidade (ex.: Bloco A, Apto 101)"></div>
+      <div class="row">
+        <div class="field"><input name="email" type="email" placeholder="E-mail" required></div>
+        <div class="field"><input name="password" type="password" placeholder="Senha" required></div>
+      </div>
+      <button class="btn" type="submit">Enviar para aprovação</button>
+      <div class="ok" id="ok3"></div><div class="err" id="err3"></div>
+    </form>
+  </div>
+</div>
+
+<script type="module">
+  import { supabase } from "./supabaseClient.js";
+
+  // Pré-preenche e-mail vindo do login
+  const params = new URLSearchParams(location.search);
+  const pre = params.get("email");
+  if (pre){
+    for (const el of document.querySelectorAll('input[type="email"]')) el.value = pre;
+  }
+
+  async function signUpAndRequest({ email, password, role_requested, payload }){
+    // 1) Cria conta no Auth (o usuário ainda não tem papéis; ficará pendente)
+    const { data: sData, error: sErr } = await supabase.auth.signUp({
+      email, password,
+      options: { emailRedirectTo: location.origin + "/app/index.html" }
+    });
+    if (sErr){ throw new Error(sErr.message); }
+
+    // 2) Registra pedido de aprovação para o papel escolhido
+    const { error: rErr } = await supabase
+      .from('registration_requests')
+      .insert([{ email, role_requested, payload }]);
+    if (rErr){ throw new Error(rErr.message); }
+
+    return sData;
+  }
+
+  function handle(formId, okId, errId, role, map){
+    const form = document.getElementById(formId);
+    const ok = document.getElementById(okId);
+    const err = document.getElementById(errId);
+    form.addEventListener('submit', async (e)=>{
+      e.preventDefault(); ok.textContent=""; err.textContent="";
+      const fd = new FormData(form);
+      const obj = Object.fromEntries(fd.entries());
+      try{
+        await signUpAndRequest({
+          email: obj.email, password: obj.password,
+          role_requested: role,
+          payload: map(obj)
+        });
+        ok.textContent = "Solicitação registrada! Verifique seu e-mail e aguarde aprovação.";
+        form.reset();
+      }catch(ex){ err.textContent = ex.message; }
+    });
+  }
+
+  handle('formAdminTenant','ok1','err1','ADMINISTRADORA', (o)=>({ company:o.company, cnpj:o.cnpj, notes:o.notes }));
+  handle('formManager','ok2','err2','SINDICO', (o)=>({ tenant:o.tenant, condo:o.condo, notes:o.notes }));
+  handle('formResident','ok3','err3','INQUILINO', (o)=>({ tenant:o.tenant, condo:o.condo, unit:o.unit }));
+
+</script>
+</body>
+</html>

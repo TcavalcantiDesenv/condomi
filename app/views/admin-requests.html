@@ -1,0 +1,41 @@
+<section class="card" style="background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02)); border:1px solid rgba(255,255,255,.08); border-radius:14px; padding:12px">
+  <h2 style="margin:6px 4px">Aprovação de Cadastros</h2>
+  <div class="filters" style="display:grid; grid-template-columns: 1fr repeat(3, minmax(140px, 220px)) 120px; gap:10px; margin-top:8px">
+    <div class="field" style="background:#12182A;border:1px solid #223049;border-radius:10px;padding:8px 10px;display:flex;align-items:center"><input id="q" placeholder="Buscar por e-mail ou observação…" style="background:transparent;border:none;outline:none;color:#E8ECF4;width:100%"/></div>
+    <div class="field" style="background:#12182A;border:1px solid #223049;border-radius:10px;padding:8px 10px"><select id="fRole" style="background:transparent;border:none;outline:none;color:#E8ECF4;width:100%"><option value="">Tipo: Todos</option><option value="ADMINISTRADORA">Administradora</option><option value="SINDICO">Síndico</option><option value="INQUILINO">Inquilino</option></select></div>
+    <div class="field" style="background:#12182A;border:1px solid #223049;border-radius:10px;padding:8px 10px"><select id="fStatus" style="background:transparent;border:none;outline:none;color:#E8ECF4;width:100%"><option value="">Status: Todos</option><option value="PENDING">Pendente</option><option value="APPROVED">Aprovado</option><option value="REJECTED">Rejeitado</option></select></div>
+    <div class="field" style="background:#12182A;border:1px solid #223049;border-radius:10px;padding:8px 10px"><select id="fSort" style="background:transparent;border:none;outline:none;color:#E8ECF4;width:100%"><option value="created_at.desc">Mais recentes</option><option value="created_at.asc">Mais antigos</option><option value="email.asc">E-mail A→Z</option><option value="email.desc">E-mail Z→A</option></select></div>
+    <button class="btn ghost" id="btnRefresh" style="border:1px solid #223049;border-radius:10px;padding:10px 12px;background:#12182A;color:#E8ECF4">Atualizar</button>
+  </div>
+</section>
+
+<section class="card" style="margin-top:10px;background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02)); border:1px solid rgba(255,255,255,.08); border-radius:14px; padding:0; overflow:auto">
+  <table id="grid" aria-label="Pedidos de cadastro" style="width:100%; border-collapse:collapse; font-size:14px">
+    <thead>
+      <tr style="position:sticky;top:0;background:#0F1420">
+        <th style="text-align:left;color:#d9ddff;border-bottom:1px solid #223049;padding:10px 8px">Quando</th>
+        <th style="text-align:left;color:#d9ddff;border-bottom:1px solid #223049;padding:10px 8px">E-mail</th>
+        <th style="text-align:left;color:#d9ddff;border-bottom:1px solid #223049;padding:10px 8px">Tipo</th>
+        <th style="text-align:left;color:#d9ddff;border-bottom:1px solid #223049;padding:10px 8px">Status</th>
+        <th style="text-align:left;color:#d9ddff;border-bottom:1px solid #223049;padding:10px 8px">Detalhes</th>
+        <th style="width:240px;text-align:left;color:#d9ddff;border-bottom:1px solid #223049;padding:10px 8px">Ações</th>
+      </tr>
+    </thead>
+    <tbody id="tbody">
+      <tr><td colspan="6" style="color:#A3ADC2;padding:14px">Carregando…</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<dialog id="dlg" style="border:none;border-radius:14px;padding:0;background:transparent">
+  <form method="dialog" style="background:#0f1420;border:1px solid #223049;border-radius:14px;padding:16px;width:min(520px,92vw)">
+    <header><h3 id="dlgTitle" style="margin:0">Confirmação</h3></header>
+    <div id="dlgBody" style="margin-top:6px"></div>
+    <footer style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
+      <button class="btn" value="cancel" style="background:#12182A;border:1px solid #223049;color:#E8ECF4;border-radius:10px;padding:10px 12px">Cancelar</button>
+      <button class="btn" value="ok" style="background:linear-gradient(90deg,#6C2BD9,#8B5CF6);color:#fff;border-radius:10px;padding:10px 12px">Confirmar</button>
+    </footer>
+  </form>
+</dialog>
+
+<div id="toast" style="display:none;position:fixed;right:12px;bottom:12px;background:#0f172a;color:#e2e8f0;padding:10px 12px;border-radius:10px;border:1px solid #334155;opacity:.96"></div>

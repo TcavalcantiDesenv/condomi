@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Condo • Escolha o tipo de cadastro</title>
+<style>
+  :root{
+    --brand-start:#6C2BD9; --brand-end:#8B5CF6; --on-brand:#fff;
+    --bg:#0B0F16; --text:#E8ECF4; --muted:#A3ADC2;
+    --panel:#0F1420; --border:#233048; --radius:16px;
+  }
+  *{box-sizing:border-box} html,body{height:100%}
+  body{
+    margin:0; color:var(--text);
+    background:radial-gradient(900px 500px at 70% 20%, rgba(124,58,237,.25), transparent 60%),
+               radial-gradient(900px 600px at 20% 80%, rgba(59,130,246,.18), transparent 60%),
+               linear-gradient(160deg,#0b0f16,#0d1020);
+    display:grid; place-items:center; padding:24px;
+  }
+  .wrap{ width:min(980px,100%); display:grid; gap:18px }
+  .header{ display:flex; justify-content:space-between; align-items:center }
+  .brand{ display:flex; align-items:center; gap:10px; font-weight:700 }
+  .logo{ width:34px; height:34px; border-radius:50%;
+         display:grid; place-items:center; color:#fff; font-weight:900;
+         background:linear-gradient(135deg,var(--brand-start),var(--brand-end)); }
+  h1{ margin:4px 0 0; font-size:clamp(22px,3vw,32px) }
+  p.muted{ color:var(--muted); margin:0 0 6px 0 }
+  .cards{ display:grid; grid-template-columns: repeat(3,1fr); gap:18px }
+  @media (max-width:900px){ .cards{ grid-template-columns:1fr } }
+  .card{
+    background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+    border:1px solid rgba(255,255,255,.08); border-radius:var(--radius);
+    padding:18px; display:grid; gap:12px;
+  }
+  .btn{
+    appearance:none; border:none; cursor:pointer; border-radius:12px; padding:14px 16px; font-weight:800;
+    background:linear-gradient(90deg,var(--brand-start),var(--brand-end)); color:var(--on-brand);
+  }
+  ul{margin:0; padding-left:18px; color:var(--muted); font-size:14px}
+  a.link{ color:#b3b8ff; text-decoration:none }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="header">
+    <div class="brand"><div class="logo">◆</div><span>Seu Condomínio</span></div>
+    <a class="link" href="login.html">Já tem conta? Entrar</a>
+  </div>
+
+  <h1>Como deseja se cadastrar?</h1>
+  <p class="muted">Escolha uma opção. Administra<strong>dora</strong> requer aprovação do <b>Gestor de Administradoras</b>. Síndico e Inquilino requerem aprovação do Administrador.</p>
+
+  <div class="cards">
+    <section class="card">
+      <h3>1 — Administradora (Usuário Master)</h3>
+      <ul>
+        <li>Cria uma administradora para gerenciar múltiplos condomínios.</li>
+        <li>Após aprovação, você recebe papel <b>MASTER</b>.</li>
+      </ul>
+      <button class="btn" onclick="go('register-admin.html')">Continuar como Administradora</button>
+    </section>
+
+    <section class="card">
+      <h3>2 — Síndico (Administrador de Condomínio)</h3>
+      <ul>
+        <li>Gerencia um condomínio específico (reservas, moradores, etc.).</li>
+        <li>Requer aprovação do Administrador/Master do tenant.</li>
+      </ul>
+      <button class="btn" onclick="go('register-manager.html')">Continuar como Síndico</button>
+    </section>
+
+    <section class="card">
+      <h3>3 — Inquilino (Usuário)</h3>
+      <ul>
+        <li>Acessa sua unidade, boletos, reservas e comunicados.</li>
+        <li>Requer aprovação do Administrador/Síndico.</li>
+      </ul>
+      <button class="btn" onclick="go('register-resident.html')">Continuar como Inquilino</button>
+    </section>
+  </div>
+</div>
+
+<script>
+  function go(path){
+    // se veio de login com ?email=..., repassa o parâmetro
+    const q = new URLSearchParams(location.search);
+    const email = q.get('email');
+    location.href = email ? `${path}?email=${encodeURIComponent(email)}` : path;
+  }
+</script>
+</body>
+</html>
