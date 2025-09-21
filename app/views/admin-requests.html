@@ -1,41 +1,196 @@
-<section class="card" style="background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02)); border:1px solid rgba(255,255,255,.08); border-radius:14px; padding:12px">
-  <h2 style="margin:6px 4px">Aprovação de Cadastros</h2>
-  <div class="filters" style="display:grid; grid-template-columns: 1fr repeat(3, minmax(140px, 220px)) 120px; gap:10px; margin-top:8px">
-    <div class="field" style="background:#12182A;border:1px solid #223049;border-radius:10px;padding:8px 10px;display:flex;align-items:center"><input id="q" placeholder="Buscar por e-mail ou observação…" style="background:transparent;border:none;outline:none;color:#E8ECF4;width:100%"/></div>
-    <div class="field" style="background:#12182A;border:1px solid #223049;border-radius:10px;padding:8px 10px"><select id="fRole" style="background:transparent;border:none;outline:none;color:#E8ECF4;width:100%"><option value="">Tipo: Todos</option><option value="ADMINISTRADORA">Administradora</option><option value="SINDICO">Síndico</option><option value="INQUILINO">Inquilino</option></select></div>
-    <div class="field" style="background:#12182A;border:1px solid #223049;border-radius:10px;padding:8px 10px"><select id="fStatus" style="background:transparent;border:none;outline:none;color:#E8ECF4;width:100%"><option value="">Status: Todos</option><option value="PENDING">Pendente</option><option value="APPROVED">Aprovado</option><option value="REJECTED">Rejeitado</option></select></div>
-    <div class="field" style="background:#12182A;border:1px solid #223049;border-radius:10px;padding:8px 10px"><select id="fSort" style="background:transparent;border:none;outline:none;color:#E8ECF4;width:100%"><option value="created_at.desc">Mais recentes</option><option value="created_at.asc">Mais antigos</option><option value="email.asc">E-mail A→Z</option><option value="email.desc">E-mail Z→A</option></select></div>
-    <button class="btn ghost" id="btnRefresh" style="border:1px solid #223049;border-radius:10px;padding:10px 12px;background:#12182A;color:#E8ECF4">Atualizar</button>
-  </div>
-</section>
+import { supabase, fetchEffectiveRoles } from "../supabaseClient.js";
 
-<section class="card" style="margin-top:10px;background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02)); border:1px solid rgba(255,255,255,.08); border-radius:14px; padding:0; overflow:auto">
-  <table id="grid" aria-label="Pedidos de cadastro" style="width:100%; border-collapse:collapse; font-size:14px">
+const RPC_NAME = "registration_request_approve"; // ajuste se o nome da sua RPC for outro
+
+const $ = (sel, root=document)=> root.querySelector(sel);
+const list = $("#list");
+const fRole   = $("#fRole");
+const fStatus = $("#fStatus");
+const q       = $("#q");
+const btnReload = $("#btnReload");
+
+let roles = [];
+let sub = null;
+
+init().catch(console.error);
+
+async function init(){
+  roles = await fetchEffectiveRoles();
+
+  // primeira carga
+  await reload();
+
+  // filtros
+  [fRole, fStatus].forEach(el => el.addEventListener("change", reload));
+  q.addEventListener("input", debounce(reload, 250));
+  btnReload.addEventListener("click", reload);
+
+  // realtime
+  subscribeRealtime();
+}
+
+function subscribeRealtime(){
+  try{
+    if (sub) supabase.removeChannel(sub);
+  }catch{}
+  sub = supabase
+    .channel("registration_requests_live")
+    .on("postgres_changes", { event: "*", schema: "public", table: "registration_requests" }, reload)
+    .subscribe();
+}
+
+async function reload(){
+  const filters = {
+    role: fRole.value || null,
+    status: fStatus.value || null,
+    search: (q.value || "").trim()
+  };
+
+  let query = supabase
+    .from("registration_requests")
+    .select("*")
+    .order("created_at", { ascending:false });
+
+  if (filters.role)   query = query.eq("role_requested", filters.role);
+  if (filters.status) query = query.eq("status", filters.status);
+  if (filters.search){
+    // busca simples por e-mail e campos típicos do payload
+    query = query.or([
+      `email.ilike.%${filters.search}%`,
+      `payload->>company.ilike.%${filters.search}%`,
+      `payload->>tenant.ilike.%${filters.search}%`,
+      `payload->>condo.ilike.%${filters.search}%`,
+      `payload->>unit.ilike.%${filters.search}%`
+    ].join(","));
+  }
+
+  const { data, error } = await query;
+  if (error){
+    list.innerHTML = `<div class="empty">Erro ao carregar solicitações: ${error.message}</div>`;
+    return;
+  }
+  render(data || []);
+}
+
+function render(rows){
+  if (!rows.length){
+    list.innerHTML = `<div class="empty">Nenhuma solicitação encontrada.</div>`;
+    return;
+  }
+
+  const canManageTenant = roles.includes("MASTER") || roles.includes("ADMIN_TENANT");
+  const canManageAdmin  = roles.includes("GESTOR_TENANTS");
+
+  const table = document.createElement("table");
+  table.className = "table";
+  table.innerHTML = `
     <thead>
-      <tr style="position:sticky;top:0;background:#0F1420">
-        <th style="text-align:left;color:#d9ddff;border-bottom:1px solid #223049;padding:10px 8px">Quando</th>
-        <th style="text-align:left;color:#d9ddff;border-bottom:1px solid #223049;padding:10px 8px">E-mail</th>
-        <th style="text-align:left;color:#d9ddff;border-bottom:1px solid #223049;padding:10px 8px">Tipo</th>
-        <th style="text-align:left;color:#d9ddff;border-bottom:1px solid #223049;padding:10px 8px">Status</th>
-        <th style="text-align:left;color:#d9ddff;border-bottom:1px solid #223049;padding:10px 8px">Detalhes</th>
-        <th style="width:240px;text-align:left;color:#d9ddff;border-bottom:1px solid #223049;padding:10px 8px">Ações</th>
+      <tr>
+        <th>Quando</th>
+        <th>E-mail</th>
+        <th>Tipo</th>
+        <th>Dados</th>
+        <th>Status</th>
+        <th style="width:220px">Ações</th>
       </tr>
     </thead>
-    <tbody id="tbody">
-      <tr><td colspan="6" style="color:#A3ADC2;padding:14px">Carregando…</td></tr>
-    </tbody>
-  </table>
-</section>
+    <tbody></tbody>
+  `;
 
-<dialog id="dlg" style="border:none;border-radius:14px;padding:0;background:transparent">
-  <form method="dialog" style="background:#0f1420;border:1px solid #223049;border-radius:14px;padding:16px;width:min(520px,92vw)">
-    <header><h3 id="dlgTitle" style="margin:0">Confirmação</h3></header>
-    <div id="dlgBody" style="margin-top:6px"></div>
-    <footer style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
-      <button class="btn" value="cancel" style="background:#12182A;border:1px solid #223049;color:#E8ECF4;border-radius:10px;padding:10px 12px">Cancelar</button>
-      <button class="btn" value="ok" style="background:linear-gradient(90deg,#6C2BD9,#8B5CF6);color:#fff;border-radius:10px;padding:10px 12px">Confirmar</button>
-    </footer>
-  </form>
-</dialog>
+  const tbody = $("tbody", table);
 
-<div id="toast" style="display:none;position:fixed;right:12px;bottom:12px;background:#0f172a;color:#e2e8f0;padding:10px 12px;border-radius:10px;border:1px solid #334155;opacity:.96"></div>
+  for (const r of rows){
+    const when = fmtDate(r.created_at);
+    const roleTag = `<span class="tag ${r.role_requested}">${roleLabel(r.role_requested)}</span>`;
+    const status = `<span class="status ${r.status || "PENDING"}">${statusLabel(r.status)}</span>`;
+
+    const payload = formatPayload(r);
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${when}</td>
+      <td>${escape(r.email)}</td>
+      <td>${roleTag}</td>
+      <td>${payload}</td>
+      <td>${status}</td>
+      <td class="cell-actions">
+        <button class="btn primary"  data-act="approve">Aprovar</button>
+        <button class="btn ghost"    data-act="reject">Rejeitar</button>
+      </td>
+    `;
+
+    // Permissões por tipo
+    const needGestor = r.role_requested === "ADMINISTRADORA";
+    const allowed = needGestor ? canManageAdmin : canManageTenant;
+    if (!allowed){
+      // desabilita botões
+      $$('button', tr).forEach(b => { b.disabled = true; b.title = "Sem permissão"; });
+    }else{
+      // actions
+      $("button[data-act=approve]", tr).addEventListener("click", ()=> onApprove(r));
+      $("button[data-act=reject]",  tr).addEventListener("click", ()=> onReject(r));
+    }
+
+    tbody.appendChild(tr);
+  }
+
+  list.innerHTML = "";
+  list.appendChild(table);
+}
+
+async function onApprove(row){
+  const note = prompt(`Aprovar solicitação de ${row.email} (${roleLabel(row.role_requested)})?\nOpcional: informe uma observação:`, "");
+  try{
+    const { error } = await supabase.rpc(RPC_NAME, { p_req_id: row.id, p_approve: true, p_note: note ?? null });
+    if (error) throw error;
+  }catch(err){
+    alert("Falha ao aprovar: " + err.message);
+  }
+}
+
+async function onReject(row){
+  const note = prompt(`Rejeitar solicitação de ${row.email}? Informe um motivo (opcional):`, "");
+  try{
+    const { error } = await supabase.rpc(RPC_NAME, { p_req_id: row.id, p_approve: false, p_note: note ?? null });
+    if (error) throw error;
+  }catch(err){
+    alert("Falha ao rejeitar: " + err.message);
+  }
+}
+
+/* utils */
+function $$ (sel, root=document){ return Array.from(root.querySelectorAll(sel)); }
+function escape(s){ return String(s ?? "").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])) }
+function fmtDate(iso){
+  try{
+    const d = new Date(iso);
+    return d.toLocaleString(undefined,{ day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+  }catch{ return iso }
+}
+function roleLabel(r){
+  return r === "ADMINISTRADORA" ? "Administradora"
+       : r === "SINDICO"        ? "Síndico"
+       : r === "INQUILINO"      ? "Inquilino"
+       : r || "-";
+}
+function statusLabel(s){
+  return s === "APPROVED" ? "Aprovado"
+       : s === "REJECTED" ? "Rejeitado"
+       : "Pendente";
+}
+function formatPayload(r){
+  const p = r.payload || {};
+  if (r.role_requested === "ADMINISTRADORA"){
+    return `<b>Empresa:</b> ${escape(p.company||"-")} &middot; <b>CNPJ:</b> ${escape(p.cnpj||"-")}`;
+  }
+  if (r.role_requested === "SINDICO"){
+    return `<b>Tenant:</b> ${escape(p.tenant||"-")} &middot; <b>Condomínio:</b> ${escape(p.condo||"-")}`;
+  }
+  if (r.role_requested === "INQUILINO"){
+    return `<b>Tenant:</b> ${escape(p.tenant||"-")} &middot; <b>Condomínio:</b> ${escape(p.condo||"-")} &middot; <b>Unidade:</b> ${escape(p.unit||"-")}`;
+  }
+  return JSON.stringify(p);
+}
+function debounce(fn, ms=250){
+  let t=null; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); };
+}
